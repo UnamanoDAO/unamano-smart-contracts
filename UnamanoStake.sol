@@ -1110,7 +1110,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         return unlockReward;
     }
 
-    // 视图函数 获取用户质押数量，锁定队列中糖果总量(非实时锁定数量)
+    // View function Get the user's pledge amount, lock the total amount of candy in the queue (non-real-time lock amount)
     function getUserInfo(uint256 _pid, address _user) external view returns (uint256 _amount, uint256 _rewardDebt, uint128 _lockSize, uint256 _lockedReward) {
         require(_pid < poolInfo.length, "invalid pool id");
         PoolInfo storage pool = poolInfo[_pid];
