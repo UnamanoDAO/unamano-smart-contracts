@@ -677,7 +677,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
 
     // Add a new lp to the pool. Can only be called by the owner in the before starting, or the controller can call after starting.
     // XXX DO NOT add the same LP token more than once. Rewards will be messed up if you do.
-    // _lockDays 矿池奖励锁定的天数，赋值0视为不锁定
+    // _lockDays The number of days that the mining pool reward is locked, assigning a value of 0 is regarded as not locked
     function add(uint16 _lockDays, uint256 _minuteBlockCount, IERC20 _lpToken, IERC20 _candyToken, uint256 _candyPerBlock, uint256 _amount,
                  uint256 _startBlock, bool _withUpdate) public onlyOwner {
 
@@ -779,7 +779,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         if (_pendingReward == 0) {
             return 0;
         }
-        //池子里合约账户上实际余额
+        //
         uint256 realBalance = pool.candyToken.balanceOf(address(this));
         if (_pendingReward >= realBalance && pool.candyBalance >= realBalance) {
             return realBalance;
@@ -907,7 +907,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
 
     // Calculate the total locked quantity of the user, calculate the unlocked quantity of the user, transfer the unlocked ones directly to the user, and add the user's current locked reward
     function _receive(PoolInfo storage pool, UserInfo storage user) internal {
-        //pool.lockDays 为0时，没有锁定
+        //pool.lockDays
         if(pool.lockDays == 0) {
             //Add user's current locked reward
             uint256 pending = user.amount.mul(pool.accPerShare).div(pool.le12).sub(user.rewardDebt);
@@ -969,11 +969,11 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
             }
         }
 
-        // 添加用户当前的锁定奖励
+        // Add user's current locked reward
         uint256 pending = 0;
         uint256 _pendingReward = user.amount.mul(pool.accPerShare).div(pool.le12).sub(user.rewardDebt);
         if (_pendingReward > 0) {
-             //池子里合约账户上实际余额
+             //The actual balance on the contract account in the pool
             uint256 realBalance = pool.candyToken.balanceOf(address(this));
             if (_pendingReward >= realBalance && pool.candyBalance >= realBalance) {
                 pending = realBalance;
@@ -1001,7 +1001,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
                 if (_unlockNumber == recently.unlockNumber) {
                     recently.amount = recently.amount.add(pending);
                 } else if (_unlockNumber > recently.unlockNumber) {
-                    // 存储到队尾
+                    // Store to the end of the queue
                     enqueue(queue, LockedRewardInfo({
                         amount: pending,
                         unlockNumber: _unlockNumber
@@ -1062,7 +1062,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
     function getRecentlyLock(uint256 _pid, address _user) external view returns (uint256 _amount, uint256 _unlockNumber) {
         require(_pid < poolInfo.length, "invalid pool id");
         PoolInfo storage pool = poolInfo[_pid];
-        //==0时，No locked amount
+        //==0，No locked amount
         if(pool.lockDays == 0) {
             return(0, 0);
         }
