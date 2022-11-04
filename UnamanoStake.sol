@@ -637,12 +637,12 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         uint256 amount;     // How many LP tokens the user has provided.
         uint256 rewardDebt; // Reward debt. See explanation below.
         Queue lockedRewardQueue;
-        uint256 lockedReward; // 锁定的未领取总金额
+        uint256 lockedReward; //Total locked unclaimed amount
     }
 
     struct LockedRewardInfo {
-        uint256 amount;       // 奖励数量
-        uint256 unlockNumber; // 解锁高度
+        uint256 amount;       // Number of awards
+        uint256 unlockNumber; // Unlock height
     }
 
     // Info of each pool.
@@ -659,7 +659,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         uint256 candyPerBlock;
         uint256 lpSupply;
         uint256 candyBalance;
-        uint256 le12;               //奖励糖果时的计算精度，默认12位
+        uint256 le12;               //The calculation precision when rewarding candy, the default is 12 bits
     }
 
     // Info of each pool.
@@ -690,8 +690,8 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         uint256 _dayBlockCount = 0;
         uint256 _totalBlockCount = 0;
         if(_lockDays > 0) {
-           _dayBlockCount = _minuteBlockCount * 60 * 24;                //锁定1天的区块数量
-           _totalBlockCount = _minuteBlockCount * 60 * 24 * _lockDays;  //锁定天数内的总区块数量
+           _dayBlockCount = _minuteBlockCount * 60 * 24;
+           _totalBlockCount = _minuteBlockCount * 60 * 24 * _lockDays;
         }
 
         uint _le12 = 1e12;
@@ -773,7 +773,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         if (block.number > pool.lastRewardBlock && lpSupply != 0) {
             uint256 candyBlock = block.number < pool.endBlock ? block.number : pool.endBlock;
             uint256 reward = (candyBlock.sub(pool.lastRewardBlock)).mul(pool.candyPerBlock);
-            accPerShare = accPerShare.add(reward.mul(pool.le12).div(lpSupply));   // 此处乘以1e12，在下面会除以1e12
+            accPerShare = accPerShare.add(reward.mul(pool.le12).div(lpSupply));
         }
         uint256 _pendingReward = user.amount.mul(accPerShare).div(pool.le12).sub(user.rewardDebt);
         if (_pendingReward == 0) {
@@ -882,7 +882,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         pool.lpSupply = pool.lpSupply.sub(user.amount);
         user.amount = 0;
         user.rewardDebt = 0;
-        // 清空锁定队列
+        //
         user.lockedRewardQueue.start = user.lockedRewardQueue.end;
         user.lockedReward = 0;
     }
@@ -905,11 +905,11 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         return transferAmount;
     }
 
-    // 计算用户总锁定数量、计算用户已解锁数量、已解锁的直接转账给用户，添加用户当前的锁定奖励
+    // Calculate the total locked quantity of the user, calculate the unlocked quantity of the user, transfer the unlocked ones directly to the user, and add the user's current locked reward
     function _receive(PoolInfo storage pool, UserInfo storage user) internal {
         //pool.lockDays 为0时，没有锁定
         if(pool.lockDays == 0) {
-            // 添加用户当前的锁定奖励
+            //Add user's current locked reward
             uint256 pending = user.amount.mul(pool.accPerShare).div(pool.le12).sub(user.rewardDebt);
             if(pending > 0) {
                 uint256 realTransfer = safeTokenTransfer(pool.candyToken, msg.sender, pending, pool.candyBalance);
@@ -920,9 +920,9 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         }
     }
 
-    //锁定的池子获取奖励
+    //Locked pools get rewards
     function _receiveWithLockPool(PoolInfo storage pool, UserInfo storage user) internal {
-        // 计算用户已解锁的数量
+        //Count how many users have unlocked
         uint256 unlockReward = 0;
         uint128 deleteHeaderLength = 0;
         uint256 currentNumber = block.number;
@@ -930,18 +930,18 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         Queue storage queue = user.lockedRewardQueue;
         uint length = queue.end - queue.start;
         if (length > 0) {
-            // 当最近添加的锁定已解锁，说明所有锁定都已解锁
+            // All locks are unlocked when the most recently added lock is unlocked
             if (queue.items[queue.end - 1].unlockNumber <= currentNumber) {
                 unlockReward = user.lockedReward;
-                // 清空锁定队列
+                // Empty the lock queue
                 user.lockedRewardQueue.start = user.lockedRewardQueue.end;
             } else {
-                // 正序遍历的方式计算领取
+                // Calculate and receive by way of positive-order traversal
                 LockedRewardInfo memory info;
                 for (uint128 i = queue.start; i < queue.end; i++) {
                     info = queue.items[i];
                     if (info.unlockNumber > currentNumber) {
-                        // 计算需要删除的头部长度
+                        // Calculate the length of the header that needs to be removed
                         deleteHeaderLength = i - queue.start;
                         break;
                     }
@@ -949,7 +949,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
                 }
             }
 
-            // 已解锁的直接转账给用户
+            // Unlocked direct transfer to user
             if (unlockReward > 0) {
                 uint256 transferAmount = unlockReward;
                 uint256 bal = pool.candyToken.balanceOf(address(this));
@@ -959,12 +959,12 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
                 if (transferAmount > 0) {
                     pool.candyToken.safeTransfer(msg.sender, transferAmount);
                 }
-                // 更新用户锁定数量
+                // Update user lock count
                 user.lockedReward = user.lockedReward.sub(unlockReward);
             }
-            // 删除锁定队列中已解锁的头部元素
+            // Remove the unlocked head element in the lock queue
             if (deleteHeaderLength > 0) {
-                // 删除头部元素
+                //remove header element
                 user.lockedRewardQueue.start = user.lockedRewardQueue.start + deleteHeaderLength;
             }
         }
@@ -985,18 +985,18 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         }
 
         if (pending > 0) {
-            user.lockedReward = user.lockedReward.add(pending); // 用户总锁定
-            uint256 _unlockNumber = currentNumber.add(pool.totalBlockCount).div(pool.dayBlockCount).mul(pool.dayBlockCount); // 解锁高度
+            user.lockedReward = user.lockedReward.add(pending);
+            uint256 _unlockNumber = currentNumber.add(pool.totalBlockCount).div(pool.dayBlockCount).mul(pool.dayBlockCount);
             length = queue.end - queue.start;
             if (length == 0) {
-                // 锁定队列是空，说明当前是第一次领取或者已经全部解锁，存储到队尾
+                // If the lock queue is empty, it means that it is the first time to receive it or it has been fully unlocked, and it is stored to the end of the queue.
                 enqueue(queue, LockedRewardInfo({
                     amount: pending,
                     unlockNumber: _unlockNumber
                 }));
             } else {
-                // 本次领取，unlockNumber始终落在今天的区块范围，若队列中最近一次领取是今天的，则累加
-                // 否则最近一次是昨天领取或者更以前，此时应该把本次领取的添加到队尾
+                // This time, the unlockNumber always falls within today's block range. If the latest claim in the queue is today's, it will be accumulated.
+                // Otherwise, the most recent one was received yesterday or earlier. At this time, the one received this time should be added to the end of the queue.
                 LockedRewardInfo storage recently = queue.items[queue.end - 1];
                 if (_unlockNumber == recently.unlockNumber) {
                     recently.amount = recently.amount.add(pending);
@@ -1039,11 +1039,11 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
     //     return length;
     // }
 
-    // 视图函数，查询用户锁定的金额
+    // View function to query the amount locked by the user
     function getLockByIndex(uint256 _pid, address _user, uint128 _index) external view returns (uint256 _amount, uint256 _unlockNumber) {
         require(_pid < poolInfo.length, "invalid pool id");
         PoolInfo storage pool = poolInfo[_pid];
-        //==0时，没有锁定金额
+        //==0，No locked amount
         if(pool.lockDays == 0) {
             return(0, 0);
         }
@@ -1058,11 +1058,11 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         return (recently.amount, recently.unlockNumber);
     }
 
-    // 视图函数，查询用户最近锁定的金额
+    // View function to query the amount recently locked by the user
     function getRecentlyLock(uint256 _pid, address _user) external view returns (uint256 _amount, uint256 _unlockNumber) {
         require(_pid < poolInfo.length, "invalid pool id");
         PoolInfo storage pool = poolInfo[_pid];
-        //==0时，没有锁定金额
+        //==0时，No locked amount
         if(pool.lockDays == 0) {
             return(0, 0);
         }
@@ -1077,22 +1077,22 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
         return (recently.amount, recently.unlockNumber);
     }
 
-    // 视图函数，计算用户锁定数组中已解锁的金额
+    // View function that calculates the unlocked amount in the user's lock array
     function getUnlockedToken(uint256 _pid, address _user) external view returns (uint256) {
         require(_pid < poolInfo.length, "invalid pool id");
         PoolInfo storage pool = poolInfo[_pid];
         UserInfo storage user = userInfo[_pid][_user];
-        //==0时，没有锁定金额，全部返回
+        //==0,No locked amount, return all
         if(pool.lockDays == 0) {
            return calcPendingReward(_pid, _user);
         }
 
-        // 计算用户已解锁的数量
+        // Count how many users have unlocked
         uint256 unlockReward = 0;
         uint256 currentNumber = block.number;
         Queue storage queue = user.lockedRewardQueue;
         uint length = queue.end - queue.start;
-        // 当最近添加的锁定已解锁，说明所有锁定都已解锁
+        // All locks are unlocked when the most recently added lock is unlocked
         if (length > 0) {
             if (queue.items[queue.end - 1].unlockNumber <= currentNumber) {
                 unlockReward = user.lockedReward;
