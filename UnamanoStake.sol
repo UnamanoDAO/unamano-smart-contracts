@@ -668,7 +668,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
     // Info of each user that stakes LP tokens.
     mapping (uint256 => mapping (address => UserInfo)) userInfo;
 
-    event AddPool(address indexed user, address lpToken, address candyToken, uint16 lockDays, uint256 candyBalance);
+    event AddPool(address indexed user,uint256 indexed pid, address lpToken, address candyToken, uint256 candyBalance);
     event UpdateStartBlock(address indexed user, uint256 indexed pid, uint256 startBlock);
     event AddCandy(address indexed user, uint256 indexed pid, uint256 candyAmount, bool withUpdate);
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
@@ -716,7 +716,7 @@ contract LockedNaboxPools is Ownable,ReentrancyGuard {
             le12:_le12
         }));
 
-        emit AddPool(msg.sender, address(_lpToken), address(_candyToken), _lockDays, _amount);
+        emit AddPool(msg.sender,poolInfo.length-1, address(_lpToken), address(_candyToken), _amount);
     }
 
     function updateStartBlock(uint256 _pid,uint256 _startBlock) public onlyOwner {
