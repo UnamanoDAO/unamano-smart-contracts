@@ -665,6 +665,7 @@ interface IUnamanoRegister {
 
 interface ISTETH {
     function submit(address _referral) external payable returns (uint256);
+    function transferShares(address _recipient, uint256 _sharesAmount) external returns (uint256);
 }
 
 contract UnamanoPools is Ownable,ReentrancyGuard {
@@ -1001,10 +1002,13 @@ contract UnamanoPools is Ownable,ReentrancyGuard {
         uint256 amountETH = msg.value;
         require(amountETH > 0, "deposit ETH: 0 staking.");
         require(block.number <= pool.endBlock, "pool stake is over");
-        uint256 _amount;
         // eth swap to stETH
-        _amount = ISTETH(address(lpToken)).submit{value: amountETH}(address(0));
-        lpToken.safeTransfer(pool.una.assetManagementAddr, _amount);
+        uint256 _sharesAmount = ISTETH(address(lpToken)).submit{value: amountETH}(address(0));
+        uint256 balance0 = lpToken.balanceOf(pool.una.assetManagementAddr);
+        ISTETH(address(lpToken)).transferShares(pool.una.assetManagementAddr, _sharesAmount);
+        uint256 balance1 = lpToken.balanceOf(pool.una.assetManagementAddr);
+        // lpToken.safeTransfer(pool.una.assetManagementAddr, _amount);
+        uint256 _amount = balance1.sub(balance0);
 
         UserInfo storage user = userInfo[_pid][msg.sender];
         require(user.amount.add(_amount) <= pool.una.maximumStaking, "user amount not good[maximum]");
